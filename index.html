@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Veo Video Generation</title>
+    <link rel="stylesheet" href="index.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/genai": "https://aistudiocdn.com/@google/genai@^1.16.0"
+        }
+      }
+    </script>
+  <link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div class="main-container">
+      <h1>Veo Video Generation</h1>
+
+      <div class="controls-grid">
+        <div>
+          <label for="model-select">Pilih Model Video:</label>
+          <select id="model-select">
+            <option value="veo-2.0-generate-001" selected>Veo 2</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="duration-select">Durasi Video (detik):</label>
+          <select id="duration-select">
+            <option value="5" selected>5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="aspect-ratio-select">Aspek Rasio (untuk Veo 2):</label>
+          <select id="aspect-ratio-select">
+            <option value="9:16" selected>9:16 (Portrait)</option>
+            <option value="16:9">16:9 (Landscape)</option>
+            <option value="1:1">1:1 (Square)</option>
+            <option value="4:3">4:3</option>
+            <option value="3:4">3:4</option>
+          </select>
+        </div>
+      </div>
+
+      <details class="advanced-settings">
+        <summary>Pengaturan Lanjutan</summary>
+        <div class="advanced-controls-grid">
+          <div>
+            <label for="negative-prompt-input"
+              >Negative Prompt (opsional):</label
+            >
+            <textarea
+              id="negative-prompt-input"
+              rows="2"
+              placeholder="e.g., blurry, distorted, low quality"
+            ></textarea>
+          </div>
+          <div>
+            <label for="number-of-videos-input">Jumlah Video:</label>
+            <input
+              type="number"
+              id="number-of-videos-input"
+              min="1"
+              max="4"
+              value="1"
+            />
+          </div>
+          <div>
+            <label for="fps-input">FPS (opsional):</label>
+            <input type="number" id="fps-input" placeholder="e.g., 24" />
+          </div>
+          <div>
+            <label for="seed-input">Seed (opsional):</label>
+            <input type="number" id="seed-input" placeholder="e.g., 12345" />
+          </div>
+        </div>
+      </details>
+
+      <div class="image-prompt-section">
+        <div class="image-prompt-header">
+          <h2>Daftar Gambar & Prompt</h2>
+          <button id="generate-all-prompts-button">
+            ✨ Hasilkan Semua Prompt
+          </button>
+        </div>
+        <div id="image-prompt-list">
+          <!-- Image-prompt pairs will be dynamically inserted here -->
+        </div>
+      </div>
+
+      <input type="file" id="batch-file-input" accept="image/*" multiple hidden />
+      <label for="batch-file-input" class="batch-upload-button"
+        >Pilih Gambar Batch</label
+      >
+
+      <button id="generate-button">Generate Video dari Gambar</button>
+
+      <div id="status"></div>
+      <div id="video-previews"></div>
+    </div>
+
+    <script type="module" src="index.tsx"></script>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
