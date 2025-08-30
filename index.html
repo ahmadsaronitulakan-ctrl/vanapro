@@ -1,109 +1,1169 @@
-<!doctype html>
-<html>
-  <head>
-    <title>Veo Video Generation</title>
-    <link rel="stylesheet" href="index.css" />
-    <script type="importmap">
-      {
-        "imports": {
-          "@google/genai": "https://aistudiocdn.com/@google/genai@^1.16.0"
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Veo & Imagen Generator - Flat Green</title>
+    <!-- Menggunakan Tailwind CSS untuk styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- JSZip for downloading all videos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        /* --- Flat Color Theme: Dark Green & Lime --- */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121c1a; /* Very dark green background */
         }
-      }
-    </script>
-  <link rel="stylesheet" href="/index.css">
+
+        /* Custom color variables for easy theme management */
+        :root {
+            --bg-dark: #1a2e28;
+            --bg-panel: #223a34;
+            --border-color: #3a5c52;
+            --accent-lime: #a3e635;
+            --accent-lime-hover: #84cc16;
+            --text-primary: #e2e8f0; /* slate-200 */
+            --text-secondary: #94a3b8; /* slate-400 */
+        }
+
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid var(--accent-lime);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .modal-enter { animation: fadeIn 0.3s ease-out; }
+        .modal-leave { animation: fadeOut 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); } }
+        
+        .image-preview {
+            width: 128px;
+            height: 128px;
+            border: 2px dashed var(--border-color);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-dark);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
 </head>
-  <body>
-    <div class="main-container">
-      <h1>Veo Video Generation</h1>
+<body class="text-[var(--text-primary)]">
 
-      <div class="controls-grid">
-        <div>
-          <label for="model-select">Pilih Model Video:</label>
-          <select id="model-select">
-            <option value="veo-2.0-generate-001" selected>Veo 2</option>
-          </select>
+    <!-- Password Modal -->
+    <div id="password-modal" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div class="w-full max-w-sm">
+            <form id="password-form" class="bg-[var(--bg-panel)] p-8 rounded-2xl shadow-2xl border border-[var(--border-color)]">
+                <h2 class="text-2xl font-bold text-white text-center mb-4">Akses Diperlukan</h2>
+                <p class="text-center text-[var(--text-secondary)] mb-6 text-sm">Silakan masukkan password untuk melanjutkan.</p>
+                <div class="mb-4">
+                    <label for="password-input" class="sr-only">Password</label>
+                    <input type="password" id="password-input" class="w-full px-4 py-3 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white transition" placeholder="Password" required>
+                </div>
+                <p id="password-error" class="text-red-400 text-center text-sm mb-4 hidden">Password salah. Coba lagi.</p>
+                <button type="submit" class="w-full bg-[var(--accent-lime)] text-black font-bold py-3 px-4 rounded-lg hover:bg-[var(--accent-lime-hover)] transition-colors">Masuk</button>
+            </form>
         </div>
-
-        <div>
-          <label for="duration-select">Durasi Video (detik):</label>
-          <select id="duration-select">
-            <option value="5" selected>5</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="aspect-ratio-select">Aspek Rasio (untuk Veo 2):</label>
-          <select id="aspect-ratio-select">
-            <option value="9:16" selected>9:16 (Portrait)</option>
-            <option value="16:9">16:9 (Landscape)</option>
-            <option value="1:1">1:1 (Square)</option>
-            <option value="4:3">4:3</option>
-            <option value="3:4">3:4</option>
-          </select>
-        </div>
-      </div>
-
-      <details class="advanced-settings">
-        <summary>Pengaturan Lanjutan</summary>
-        <div class="advanced-controls-grid">
-          <div>
-            <label for="negative-prompt-input"
-              >Negative Prompt (opsional):</label
-            >
-            <textarea
-              id="negative-prompt-input"
-              rows="2"
-              placeholder="e.g., blurry, distorted, low quality"
-            ></textarea>
-          </div>
-          <div>
-            <label for="number-of-videos-input">Jumlah Video:</label>
-            <input
-              type="number"
-              id="number-of-videos-input"
-              min="1"
-              max="4"
-              value="1"
-            />
-          </div>
-          <div>
-            <label for="fps-input">FPS (opsional):</label>
-            <input type="number" id="fps-input" placeholder="e.g., 24" />
-          </div>
-          <div>
-            <label for="seed-input">Seed (opsional):</label>
-            <input type="number" id="seed-input" placeholder="e.g., 12345" />
-          </div>
-        </div>
-      </details>
-
-      <div class="image-prompt-section">
-        <div class="image-prompt-header">
-          <h2>Daftar Gambar & Prompt</h2>
-          <button id="generate-all-prompts-button">
-            ✨ Hasilkan Semua Prompt
-          </button>
-        </div>
-        <div id="image-prompt-list">
-          <!-- Image-prompt pairs will be dynamically inserted here -->
-        </div>
-      </div>
-
-      <input type="file" id="batch-file-input" accept="image/*" multiple hidden />
-      <label for="batch-file-input" class="batch-upload-button"
-        >Pilih Gambar Batch</label
-      >
-
-      <button id="generate-button">Generate Video dari Gambar</button>
-
-      <div id="status"></div>
-      <div id="video-previews"></div>
     </div>
 
-    <script type="module" src="index.tsx"></script>
-  <script type="module" src="/index.tsx"></script>
+
+    <div id="app-container" class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl hidden">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-white">Batch Veo & Imagen Generator</h1>
+            <a href="https://lynk.id/3dkartun/s/ZNRvrZj" target="_blank" rel="noopener noreferrer" class="mt-2 text-md text-[var(--accent-lime)] hover:text-[var(--accent-lime-hover)] transition-colors">Traktir saya Coffe</a>
+        </header>
+
+        <!-- Main Tabs -->
+        <div class="mb-6 border-b border-[var(--border-color)]">
+            <nav class="flex space-x-1 sm:space-x-4" aria-label="Tabs">
+                <button id="main-tab-text-to-video" class="px-3 sm:px-4 py-2 font-medium text-sm rounded-t-lg text-white border-b-2 border-[var(--accent-lime)]">Text to Video</button>
+                <button id="main-tab-image-to-video" class="px-3 sm:px-4 py-2 font-medium text-sm rounded-t-lg text-[var(--text-secondary)] hover:text-white">Image to Video</button>
+                <button id="main-tab-text-to-image" class="px-3 sm:px-4 py-2 font-medium text-sm rounded-t-lg text-[var(--text-secondary)] hover:text-white">Text to Image</button>
+                <button id="main-tab-json-prompt" class="px-3 sm:px-4 py-2 font-medium text-sm rounded-t-lg text-[var(--text-secondary)] hover:text-white">JSON Prompt</button>
+            </nav>
+        </div>
+
+        <div class="bg-[var(--bg-panel)] p-4 sm:p-6 rounded-xl shadow-lg mb-8 border border-[var(--border-color)]">
+            <!-- Shared Settings -->
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <label for="api-keys" class="block text-sm font-medium text-[var(--text-primary)]">Google AI API Keys</label>
+                    <a href="https://drive.google.com/drive/folders/14MtuOCRB-hiUQzdRmMbILA0p6T1v8DrX?usp=sharing" target="_blank" rel="noopener noreferrer" class="text-xs text-[var(--accent-lime)] hover:text-[var(--accent-lime-hover)] transition-colors">(Cara mendapatkan Api key)</a>
+                </div>
+                <textarea id="api-keys" name="api-keys" rows="3" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white transition" placeholder="Masukkan satu atau lebih API Key di sini"></textarea>
+            </div>
+            
+            <details class="bg-black/20 p-4 rounded-lg mb-4">
+                <summary class="cursor-pointer text-white font-semibold">Pengaturan Lanjutan</summary>
+                <div class="mt-4 space-y-4">
+                    <div>
+                        <label for="negative-prompt" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Negative Prompt</label>
+                        <input type="text" id="negative-prompt" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white" placeholder="Contoh: blurry, low quality, text">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                             <label for="multiple-generate-select" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Multiple Generate</label>
+                             <select id="multiple-generate-select" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                             </select>
+                        </div>
+                        <div>
+                             <label for="delay-select" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Jeda Antar Batch (detik)</label>
+                             <select id="delay-select" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10</option>
+                             </select>
+                        </div>
+                    </div>
+                </div>
+            </details>
+            <hr class="border-[var(--border-color)] my-6">
+
+            <!-- Text to Video Panel -->
+            <div id="panel-text-to-video">
+                <form id="prompt-form">
+                     <div class="mb-4">
+                        <label for="model-select-video-text" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Pilih Model Video</label>
+                        <select id="model-select-video-text" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                            <option value="veo-3.0-generate-preview">Veo 3</option>
+                            <option value="veo-3.0-fast-generate-preview">Veo 3 (Cepat)</option>
+                            <option value="veo-2.0-generate-001">Veo 2</option>
+                        </select>
+                    </div>
+                    <div id="veo2-settings-container-text" class="space-y-4 mb-4 hidden">
+                        <div>
+                            <label for="duration-select-text" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Durasi Video (untuk Veo 2)</label>
+                            <select id="duration-select-text" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                                <option value="5">5 detik</option>
+                                <option value="6">6 detik</option>
+                                <option value="7">7 detik</option>
+                                <option value="8">8 detik</option>
+                            </select>
+                        </div>
+                        <div>
+                           <label for="aspect-ratio-select-veo2-text" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Aspek Rasio (untuk Veo 2)</label>
+                            <select id="aspect-ratio-select-veo2-text" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                                <option value="16:9">16:9 (Landscape)</option>
+                                <option value="9:16">9:16 (Portrait)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-2">
+                             <label for="prompts" class="block text-sm font-medium text-[var(--text-primary)]">Prompts (satu per baris)</label>
+                             <button type="button" id="open-gemini-modal-btn" class="text-sm text-[var(--accent-lime)] font-semibold hover:text-[var(--accent-lime-hover)] transition">✨ Asisten Prompt AI</button>
+                        </div>
+                        <textarea id="prompts" name="prompts" rows="8" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white transition" placeholder="Salin-tempel beberapa baris dari editor teks atau spreadsheet." required></textarea>
+                        <p class="text-xs text-[var(--text-secondary)] mt-1 text-right">Jumlah Prompt: <span id="prompt-count-text">0</span></p>
+                    </div>
+                    <div>
+                        <button type="submit" id="generate-btn-text" class="w-full bg-[var(--accent-lime)] text-black font-bold py-3 px-4 rounded-lg hover:bg-[var(--accent-lime-hover)] focus:outline-none focus:ring-4 focus:ring-lime-500/50 transition-all duration-300 ease-in-out flex items-center justify-center disabled:bg-gray-600">
+                            <span class="btn-text">Generate Video dari Teks</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <!-- Image to Video Panel -->
+            <div id="panel-image-to-video" class="hidden">
+                 <form id="image-form">
+                    <div class="mb-4">
+                        <label for="model-select-video-image" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Pilih Model Video</label>
+                        <select id="model-select-video-image" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                            <option value="veo-3.0-generate-preview">Veo 3</option>
+                            <option value="veo-3.0-fast-generate-preview">Veo 3 (Cepat)</option>
+                            <option value="veo-2.0-generate-001">Veo 2</option>
+                        </select>
+                    </div>
+                    <div id="veo2-settings-container-image" class="space-y-4 mb-4 hidden">
+                        <div>
+                            <label for="duration-select-image" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Durasi Video (untuk Veo 2)</label>
+                            <select id="duration-select-image" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                                <option value="5">5 detik</option>
+                                <option value="6">6 detik</option>
+                                <option value="7">7 detik</option>
+                                <option value="8">8 detik</option>
+                            </select>
+                        </div>
+                        <div>
+                           <label for="aspect-ratio-select-veo2-image" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Aspek Rasio (untuk Veo 2)</label>
+                            <select id="aspect-ratio-select-veo2-image" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                                <option value="16:9">16:9 (Landscape)</option>
+                                <option value="9:16">9:16 (Portrait)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="block text-sm font-medium text-[var(--text-primary)]">Daftar Gambar & Prompt</label>
+                        <button type="button" id="generate-all-prompts-btn" class="text-sm text-[var(--accent-lime)] font-semibold hover:text-[var(--accent-lime-hover)] transition">✨ Hasilkan Semua Prompt</button>
+                    </div>
+                    <div id="image-uploads-container">
+                        <!-- Image upload blocks will be injected here -->
+                    </div>
+                    <label for="batch-image-upload" class="mt-4 w-full text-[var(--accent-lime)] border border-dashed border-[var(--accent-lime)] rounded-lg py-2 text-center block cursor-pointer hover:bg-lime-400/10 transition">Pilih Gambar Batch</label>
+                    <input type="file" id="batch-image-upload" class="hidden" multiple accept="image/*">
+                    <div class="mt-6">
+                        <button type="submit" id="generate-btn-image" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/50 transition-all duration-300 ease-in-out flex items-center justify-center disabled:bg-gray-600">
+                             <span class="btn-text">Generate Video dari Gambar</span>
+                        </button>
+                    </div>
+                 </form>
+            </div>
+             <!-- Batch Text to Image Panel -->
+            <div id="panel-text-to-image" class="hidden">
+                <form id="text-to-image-form">
+                     <div class="mb-4">
+                        <label for="model-select-image" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Pilih Model Gambar</label>
+                        <select id="model-select-image" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                            <option value="imagen-4.0-ultra-generate-preview-06-06">Imagen 4 Ultra</option>
+                            <option value="imagen-4.0-generate-preview-06-06">Imagen 4</option>
+                            <option value="imagen-3.0-generate-002">Imagen 3</option>
+                        </select>
+                    </div>
+                     <div class="mb-4">
+                        <label for="aspect-ratio-select-image-gen" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Aspek Rasio</label>
+                        <select id="aspect-ratio-select-image-gen" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                            <option value="16:9">16:9 (Landscape)</option>
+                            <option value="9:16">9:16 (Portrait)</option>
+                            <option value="1:1">1:1 (Square)</option>
+                            <option value="4:3">4:3</option>
+                            <option value="3:4">3:4</option>
+                        </select>
+                    </div>
+                    <div class="mb-6">
+                        <label for="image-prompts" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Prompts (satu per baris)</label>
+                        <textarea id="image-prompts" name="image-prompts" rows="8" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white transition" placeholder="A photorealistic image of a majestic lion..." required></textarea>
+                        <p class="text-xs text-[var(--text-secondary)] mt-1 text-right">Jumlah Prompt: <span id="prompt-count-image">0</span></p>
+                    </div>
+                    <div>
+                        <button type="submit" id="generate-btn-text-to-image" class="w-full bg-pink-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-pink-700 focus:outline-none focus:ring-4 focus:ring-pink-500/50 transition-all duration-300 ease-in-out flex items-center justify-center disabled:bg-gray-600">
+                            <span class="btn-text">Generate Gambar dari Teks</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <!-- JSON Prompt Panel -->
+            <div id="panel-json-prompt" class="hidden">
+                <form id="json-form">
+                    <div class="mb-4">
+                        <label for="model-select-video-json" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Pilih Model Video</label>
+                        <select id="model-select-video-json" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                            <option value="veo-3.0-generate-preview">Veo 3</option>
+                            <option value="veo-3.0-fast-generate-preview">Veo 3 (Cepat)</option>
+                            <option value="veo-2.0-generate-001">Veo 2</option>
+                        </select>
+                    </div>
+                    <div id="veo2-settings-container-json" class="space-y-4 mb-4 hidden">
+                        <div>
+                            <label for="duration-select-json" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Durasi Video (untuk Veo 2)</label>
+                            <select id="duration-select-json" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                                <option value="5">5 detik</option>
+                                <option value="6">6 detik</option>
+                                <option value="7">7 detik</option>
+                                <option value="8">8 detik</option>
+                            </select>
+                        </div>
+                        <div>
+                           <label for="aspect-ratio-select-veo2-json" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Aspek Rasio (untuk Veo 2)</label>
+                            <select id="aspect-ratio-select-veo2-json" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white">
+                                <option value="16:9">16:9 (Landscape)</option>
+                                <option value="9:16">9:16 (Portrait)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-6">
+                        <label for="json-prompt-input" class="block text-sm font-medium text-[var(--text-primary)] mb-2">Single Prompt (Bisa berisi JSON)</label>
+                        <textarea id="json-prompt-input" rows="12" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white font-mono text-xs" placeholder='Contoh: A cinematic shot of a cat astronaut floating in space, audio: space ambient sounds' required></textarea>
+                    </div>
+                    <div>
+                        <button type="submit" id="generate-btn-json" class="w-full bg-orange-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-orange-700 focus:outline-none focus:ring-4 focus:ring-orange-500/50 transition-all duration-300 ease-in-out flex items-center justify-center disabled:bg-gray-600">
+                            <span class="btn-text">Generate dari Prompt Tunggal</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="processing-actions-container" class="my-6 hidden">
+            <button id="cancel-btn" class="w-full bg-red-600/50 text-red-300 border border-red-500/60 hover:bg-red-500/60 hover:text-white font-bold py-3 px-4 rounded-lg transition-all">Batalkan Semua Proses</button>
+        </div>
+        
+        <div id="results-container" class="pb-4"></div>
+        
+        <div id="post-processing-actions-container" class="my-6 hidden">
+             <button id="retry-all-btn" class="w-full bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-yellow-700">Retry All Error Generate</button>
+        </div>
+
+        <div id="download-all-container" class="mt-6 hidden pb-20">
+            <div class="flex flex-col sm:flex-row gap-2">
+                <button id="download-all-zip-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700">Download Semua sebagai .zip</button>
+                <button id="download-all-files-btn" class="w-full bg-sky-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-sky-700">Download Semua File</button>
+            </div>
+            <p class="text-xs text-center text-[var(--text-secondary)] mt-2">Untuk download individual, browser Anda mungkin akan meminta izin untuk mengunduh beberapa file sekaligus.</p>
+        </div>
+    </div>
+
+    <!-- Gemini AI Modal -->
+    <div id="gemini-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+        <div id="modal-content" class="bg-[var(--bg-panel)] rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all p-6 modal-enter border border-[var(--border-color)]">
+            <div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold text-white">✨ Asisten Prompt Gemini</h2><button id="close-gemini-modal-btn" class="text-[var(--text-secondary)] hover:text-white text-3xl leading-none">&times;</button></div>
+            <div class="mb-6 border-b border-[var(--border-color)]"><nav class="flex space-x-2 sm:space-x-4" aria-label="Tabs"><button id="tab-enhance" class="px-3 py-2 font-medium text-xs sm:text-sm rounded-md text-black bg-[var(--accent-lime)]">Tingkatkan Prompt</button><button id="tab-ideas" class="px-3 py-2 font-medium text-xs sm:text-sm rounded-md text-[var(--text-secondary)] hover:text-white">Hasilkan Ide</button><button id="tab-story" class="px-3 py-2 font-medium text-xs sm:text-sm rounded-md text-[var(--text-secondary)] hover:text-white">Buat Cerita Batch</button></nav></div>
+            <div id="content-enhance"><p class="text-sm text-[var(--text-secondary)] mb-2">Masukkan ide sederhana, dan Gemini akan mengubahnya menjadi prompt Veo 3 yang detail dalam satu baris.</p><textarea id="enhance-input" rows="3" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white" placeholder="Contoh: kucing di luar angkasa"></textarea><button id="enhance-btn" class="mt-3 w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 flex items-center justify-center">Tingkatkan dengan Gemini</button></div>
+            <div id="content-ideas" class="hidden"><p class="text-sm text-[var(--text-secondary)] mb-2">Masukkan sebuah tema, dan Gemini akan memberikan 3 ide prompt video yang kreatif untuk Veo 3.</p><input type="text" id="ideas-input" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white" placeholder="Contoh: fantasi bawah air"><button id="ideas-btn" class="mt-3 w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 flex items-center justify-center">Hasilkan Ide</button></div>
+            <div id="content-story" class="hidden"><p class="text-sm text-[var(--text-secondary)] mb-2">Masukkan ide cerita, dan Gemini akan membuat 5 prompt berurutan untuk film pendek Anda.</p><textarea id="story-input" rows="3" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white" placeholder="Contoh: seorang detektif memecahkan misteri di kota cyberpunk"></textarea><button id="story-btn" class="mt-3 w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 flex items-center justify-center">Buat Alur Cerita</button></div>
+            <div id="gemini-result-area" class="mt-4 hidden"><h3 class="text-lg font-semibold text-white mb-2">Hasil dari Gemini:</h3><div id="gemini-loader" class="flex justify-center items-center p-4"><div class="loader"></div></div><div id="gemini-output" class="text-sm bg-black/30 p-4 rounded-lg whitespace-pre-wrap font-mono text-[var(--text-primary)]"></div><button id="use-prompt-btn" class="mt-3 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 hidden">Gunakan Prompt Ini</button></div>
+        </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div id="error-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-[var(--bg-panel)] rounded-2xl shadow-2xl w-full max-w-md transform transition-all p-6 modal-enter border border-red-500/50">
+            <div class="flex items-center mb-4"><div class="flex-shrink-0 bg-red-500/20 text-red-400 rounded-full p-2"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></div><h2 class="text-xl font-bold text-white ml-4">Terjadi Masalah</h2></div>
+            <p id="error-message-text" class="text-[var(--text-primary)] mb-6">Pesan error akan muncul di sini.</p>
+            <button id="close-error-modal-btn" class="w-full bg-[var(--accent-lime)] text-black font-bold py-2 px-4 rounded-lg hover:bg-[var(--accent-lime-hover)]">Mengerti</button>
+        </div>
+    </div>
+
+
+    <script>
+        // --- DOM Elements ---
+        const appContainer = document.getElementById('app-container');
+        const passwordModal = document.getElementById('password-modal');
+        const passwordForm = document.getElementById('password-form');
+        const passwordInput = document.getElementById('password-input');
+        const passwordError = document.getElementById('password-error');
+        const apiKeyInput = document.getElementById('api-keys');
+        const modelSelectVideoText = document.getElementById('model-select-video-text');
+        const modelSelectVideoImage = document.getElementById('model-select-video-image');
+        const modelSelectImage = document.getElementById('model-select-image');
+        const veo2SettingsContainerText = document.getElementById('veo2-settings-container-text');
+        const veo2SettingsContainerImage = document.getElementById('veo2-settings-container-image');
+        const durationSelectText = document.getElementById('duration-select-text');
+        const durationSelectImage = document.getElementById('duration-select-image');
+        const aspectRatioSelectVeo2Text = document.getElementById('aspect-ratio-select-veo2-text');
+        const aspectRatioSelectVeo2Image = document.getElementById('aspect-ratio-select-veo2-image');
+        const resultsContainer = document.getElementById('results-container');
+        const textForm = document.getElementById('prompt-form');
+        const promptsInput = document.getElementById('prompts');
+        const generateBtnText = document.getElementById('generate-btn-text');
+        const imageForm = document.getElementById('image-form');
+        const imageUploadsContainer = document.getElementById('image-uploads-container');
+        const batchImageUploadInput = document.getElementById('batch-image-upload');
+        const generateAllPromptsBtn = document.getElementById('generate-all-prompts-btn');
+        const generateBtnImage = document.getElementById('generate-btn-image');
+        const textToImageForm = document.getElementById('text-to-image-form');
+        const imagePromptsInput = document.getElementById('image-prompts');
+        const generateBtnTextToImage = document.getElementById('generate-btn-text-to-image');
+        const mainTabTextToVideo = document.getElementById('main-tab-text-to-video');
+        const mainTabImageToVideo = document.getElementById('main-tab-image-to-video');
+        const mainTabTextToImage = document.getElementById('main-tab-text-to-image');
+        const mainTabJsonPrompt = document.getElementById('main-tab-json-prompt');
+        const panelTextToVideo = document.getElementById('panel-text-to-video');
+        const panelImageToVideo = document.getElementById('panel-image-to-video');
+        const panelTextToImage = document.getElementById('panel-text-to-image');
+        const panelJsonPrompt = document.getElementById('panel-json-prompt');
+        const jsonForm = document.getElementById('json-form');
+        const jsonPromptInput = document.getElementById('json-prompt-input');
+        const generateBtnJson = document.getElementById('generate-btn-json');
+        const geminiModal = document.getElementById('gemini-modal');
+        const modalContent = document.getElementById('modal-content');
+        const openModalBtn = document.getElementById('open-gemini-modal-btn');
+        const closeModalBtn = document.getElementById('close-gemini-modal-btn');
+        const tabEnhance = document.getElementById('tab-enhance');
+        const tabIdeas = document.getElementById('tab-ideas');
+        const tabStory = document.getElementById('tab-story');
+        const contentEnhance = document.getElementById('content-enhance');
+        const contentIdeas = document.getElementById('content-ideas');
+        const contentStory = document.getElementById('content-story');
+        const enhanceBtn = document.getElementById('enhance-btn');
+        const ideasBtn = document.getElementById('ideas-btn');
+        const storyBtn = document.getElementById('story-btn');
+        const geminiResultArea = document.getElementById('gemini-result-area');
+        const geminiLoader = document.getElementById('gemini-loader');
+        const geminiOutput = document.getElementById('gemini-output');
+        const usePromptBtn = document.getElementById('use-prompt-btn');
+        const errorModal = document.getElementById('error-modal');
+        const errorMessageText = document.getElementById('error-message-text');
+        const closeErrorModalBtn = document.getElementById('close-error-modal-btn');
+        const downloadAllContainer = document.getElementById('download-all-container');
+        const downloadAllZipBtn = document.getElementById('download-all-zip-btn');
+        const downloadAllFilesBtn = document.getElementById('download-all-files-btn');
+        const processingActionsContainer = document.getElementById('processing-actions-container');
+        const postProcessingActionsContainer = document.getElementById('post-processing-actions-container');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const retryAllBtn = document.getElementById('retry-all-btn');
+        const negativePromptInput = document.getElementById('negative-prompt');
+        const aspectRatioSelectImageGen = document.getElementById('aspect-ratio-select-image-gen');
+        const modelSelectVideoJson = document.getElementById('model-select-video-json');
+        const veo2SettingsContainerJson = document.getElementById('veo2-settings-container-json');
+        const durationSelectJson = document.getElementById('duration-select-json');
+        const aspectRatioSelectVeo2Json = document.getElementById('aspect-ratio-select-veo2-json');
+        const promptCountText = document.getElementById('prompt-count-text');
+        const promptCountImage = document.getElementById('prompt-count-image');
+        const multipleGenerateSelect = document.getElementById('multiple-generate-select');
+        const delaySelect = document.getElementById('delay-select');
+
+        const sleep = ms => new Promise(res => setTimeout(res, ms));
+        let stopAllProcessing = false;
+        let generatedMedia = [];
+        let tasksStore = {};
+
+        // --- API Key Manager ---
+        const apiKeyManager = {
+            keys: [],
+            currentIndex: 0,
+            init(keysString) {
+                this.keys = keysString.trim().split('\n').filter(k => k.trim() !== '');
+                this.currentIndex = 0;
+            },
+            getKey() {
+                if (this.keys.length === 0) return null;
+                return this.keys[this.currentIndex];
+            },
+            rotateKey() {
+                if (this.keys.length > 1) {
+                    this.currentIndex = (this.currentIndex + 1) % this.keys.length;
+                    console.log(`Rotated to API key index: ${this.currentIndex}`);
+                }
+            },
+            hasKeys() {
+                return this.keys.length > 0;
+            }
+        };
+
+        // --- Password Protection ---
+        const APP_PASSWORD = "vana";
+        
+        function checkAuth() {
+            if (sessionStorage.getItem('isAppAuthenticated') === 'true') {
+                passwordModal.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+            } else {
+                passwordModal.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+            }
+        }
+        
+        passwordForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (passwordInput.value === APP_PASSWORD) {
+                sessionStorage.setItem('isAppAuthenticated', 'true');
+                checkAuth();
+            } else {
+                passwordError.classList.remove('hidden');
+            }
+        });
+
+        // --- Main App Logic ---
+        function switchTab(activeTabId) {
+            const tabs = { 
+                'main-tab-text-to-video': panelTextToVideo, 
+                'main-tab-image-to-video': panelImageToVideo,
+                'main-tab-text-to-image': panelTextToImage,
+                'main-tab-json-prompt': panelJsonPrompt
+            };
+            const tabButtons = { 
+                'main-tab-text-to-video': mainTabTextToVideo, 
+                'main-tab-image-to-video': mainTabImageToVideo,
+                'main-tab-text-to-image': mainTabTextToImage,
+                'main-tab-json-prompt': mainTabJsonPrompt
+            };
+            const borderColors = { 
+                'main-tab-text-to-video': 'border-[var(--accent-lime)]', 
+                'main-tab-image-to-video': 'border-blue-500',
+                'main-tab-text-to-image': 'border-pink-500',
+                'main-tab-json-prompt': 'border-orange-500'
+            };
+            for (const id in tabs) {
+                if (id === activeTabId) {
+                    tabs[id].classList.remove('hidden');
+                    tabButtons[id].className = `px-3 sm:px-4 py-2 font-medium text-sm rounded-t-lg text-white border-b-2 ${borderColors[id]}`;
+                } else {
+                    tabs[id].classList.add('hidden');
+                    tabButtons[id].className = 'px-3 sm:px-4 py-2 font-medium text-sm rounded-t-lg text-[var(--text-secondary)] hover:text-white';
+                }
+            }
+        }
+        mainTabTextToVideo.addEventListener('click', () => switchTab('main-tab-text-to-video'));
+        mainTabImageToVideo.addEventListener('click', () => switchTab('main-tab-image-to-video'));
+        mainTabTextToImage.addEventListener('click', () => switchTab('main-tab-text-to-image'));
+        mainTabJsonPrompt.addEventListener('click', () => switchTab('main-tab-json-prompt'));
+        
+        document.addEventListener('click', function(event) {
+            if (event.target.matches('a[download]')) {
+                event.preventDefault();
+                const link = document.createElement('a');
+                link.href = event.target.href; link.download = event.target.download;
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            }
+        });
+        function showErrorModal(message) {
+            errorMessageText.textContent = message;
+            errorModal.classList.remove('hidden');
+        }
+        closeErrorModalBtn.addEventListener('click', () => errorModal.classList.add('hidden'));
+        
+        // --- Image-to-Video UI Logic ---
+        let imageBlockCount = 0;
+        
+        function addImageBlock(file = null) {
+            imageBlockCount++;
+            const blockId = `image-block-${imageBlockCount}`;
+            const block = document.createElement('div');
+            block.id = blockId;
+            block.className = 'p-4 border border-[var(--border-color)] rounded-lg mb-4';
+            block.innerHTML = `
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <div class="flex-shrink-0"><label for="file-input-${blockId}" class="image-preview cursor-pointer"><span>Pilih Gambar</span></label><input type="file" id="file-input-${blockId}" class="hidden" accept="image/*"></div>
+                    <div class="flex-grow"><label for="image-prompt-${blockId}" class="text-sm font-medium text-[var(--text-primary)] mb-1 block">Prompt untuk Gambar Ini (opsional)</label><textarea id="image-prompt-${blockId}" rows="3" class="w-full px-3 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--accent-lime)] text-white" placeholder="Kosongkan untuk generate otomatis"></textarea><button type="button" class="generate-prompt-from-image-btn mt-2 text-xs text-[var(--accent-lime)] font-semibold hover:text-[var(--accent-lime-hover)] transition">✨ Buat Prompt dari Gambar</button></div>
+                    <div class="flex-shrink-0 self-center"><button type="button" class="remove-image-btn text-red-500 hover:text-red-400" data-block-id="${blockId}">&times; Hapus</button></div>
+                </div>`;
+            
+            imageUploadsContainer.appendChild(block);
+            
+            const fileInput = document.getElementById(`file-input-${blockId}`);
+            const previewEl = fileInput.previousElementSibling;
+
+            const handleFile = (file) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewEl.style.backgroundImage = `url('${e.target.result}')`;
+                    previewEl.innerHTML = ''; 
+                };
+                reader.readAsDataURL(file);
+            };
+
+            if (file) {
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                handleFile(file);
+            }
+
+            fileInput.addEventListener('change', (event) => {
+                const selectedFile = event.target.files[0];
+                if (selectedFile) handleFile(selectedFile);
+            });
+            block.querySelector('.remove-image-btn').addEventListener('click', (event) => { document.getElementById(event.target.dataset.blockId).remove(); });
+            block.querySelector('.generate-prompt-from-image-btn').addEventListener('click', handleGeneratePromptFromImage);
+        }
+
+        batchImageUploadInput.addEventListener('change', (event) => {
+            const files = event.target.files;
+            if (!files.length) return;
+            const allBlocks = imageUploadsContainer.querySelectorAll('[id^="image-block-"]');
+            const firstBlock = allBlocks[0];
+            const isFirstBlockEmpty = allBlocks.length === 1 && !firstBlock.querySelector('input[type="file"]').files.length;
+            if (isFirstBlockEmpty) {
+                firstBlock.remove();
+            }
+            for (const file of files) {
+                addImageBlock(file);
+            }
+        });
+
+        generateAllPromptsBtn.addEventListener('click', () => {
+            apiKeyManager.init(apiKeyInput.value);
+            if (!apiKeyManager.hasKeys()) {
+                showErrorModal('Mohon isi API Key terlebih dahulu.');
+                return;
+            }
+            document.querySelectorAll('.generate-prompt-from-image-btn').forEach(btn => btn.click());
+        });
+        window.addEventListener('DOMContentLoaded', addImageBlock);
+
+        // --- Gemini API Functionality ---
+        async function callGeminiApi(payload, apiKey) {
+            const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const response = await fetch(GEMINI_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) { const errorData = await response.json(); throw new Error(`Gemini API Error: ${errorData.error?.message || 'Unknown error'}`); }
+            const result = await response.json();
+            return result.candidates[0].content.parts[0].text.trim();
+        }
+        openModalBtn.addEventListener('click', () => { modalContent.classList.remove('modal-leave'); modalContent.classList.add('modal-enter'); geminiModal.classList.remove('hidden'); });
+        closeModalBtn.addEventListener('click', () => { modalContent.classList.add('modal-leave'); modalContent.classList.remove('modal-enter'); setTimeout(() => { geminiModal.classList.add('hidden'); }, 300); });
+        
+        function switchGeminiTab(activeTab) {
+            [tabEnhance, tabIdeas, tabStory].forEach(tab => {
+                tab.className = 'px-3 py-2 font-medium text-xs sm:text-sm rounded-md text-[var(--text-secondary)] hover:text-white';
+            });
+            [contentEnhance, contentIdeas, contentStory].forEach(content => content.classList.add('hidden'));
+            activeTab.className = 'px-3 py-2 font-medium text-xs sm:text-sm rounded-md text-black bg-[var(--accent-lime)]';
+            document.getElementById(activeTab.id.replace('tab-', 'content-')).classList.remove('hidden');
+            geminiResultArea.classList.add('hidden');
+        }
+        tabEnhance.addEventListener('click', () => switchGeminiTab(tabEnhance));
+        tabIdeas.addEventListener('click', () => switchGeminiTab(tabIdeas));
+        tabStory.addEventListener('click', () => switchGeminiTab(tabStory));
+
+        const handleGeminiRequest = async (inputElement, promptGenerator) => {
+            const userInput = inputElement.value.trim(); 
+            if (!userInput) { alert("Mohon masukkan input Anda."); return; }
+            apiKeyManager.init(apiKeyInput.value);
+            const apiKey = apiKeyManager.getKey();
+            if (!apiKey) { alert("Mohon masukkan API Key Anda."); return; }
+            const fullPrompt = promptGenerator(userInput);
+            geminiResultArea.classList.remove('hidden'); geminiLoader.classList.remove('hidden'); geminiOutput.classList.add('hidden'); usePromptBtn.classList.add('hidden');
+            try { const payload = { contents: [{ parts: [{ text: fullPrompt }] }] }; const result = await callGeminiApi(payload, apiKey); geminiOutput.textContent = result; usePromptBtn.classList.remove('hidden'); } catch (error) { geminiOutput.textContent = `Error: ${error.message}`; } finally { geminiLoader.classList.add('hidden'); geminiOutput.classList.remove('hidden'); }
+        };
+        enhanceBtn.addEventListener('click', () => handleGeminiRequest(document.getElementById('enhance-input'), (input) => `Anda adalah seorang penulis skenario ahli untuk model AI text-to-video Veo. Ubah ide dasar berikut menjadi satu prompt sinematik yang sangat detail dalam **satu baris tunggal**. Prompt harus dalam bahasa Inggris dan wajib menyertakan deskripsi audio yang spesifik dan relevan di akhir prompt, dengan format \`, audio: [deskripsi audio]\`. Contoh: \`A hyper-detailed cinematic shot of a futuristic city at night, rain-slicked streets reflecting neon signs, flying cars weaving through skyscrapers, audio: sound of pouring rain, humming of futuristic vehicles, synthwave music.\` Ide dasar: "${input}"`));
+        ideasBtn.addEventListener('click', () => handleGeminiRequest(document.getElementById('ideas-input'), (input) => `Anda adalah seorang brainstormer kreatif untuk model AI text-to-video Veo. Buat **tepat 3 ide prompt** yang unik berdasarkan tema berikut. Setiap prompt harus berada di baris baru, dalam bahasa Inggris, dan wajib menyertakan deskripsi audio yang spesifik dan relevan di akhir setiap prompt dengan format \`, audio: [deskripsi audio]\`. **Jangan sertakan teks pengantar atau penutup apa pun, hanya daftar prompt saja.** Contoh: \`A majestic dragon soaring through a stormy sky, lightning flashes revealing its iridescent scales, audio: thunder roars, powerful wing beats, epic orchestral score.\` Tema: "${input}"`));
+        storyBtn.addEventListener('click', () => handleGeminiRequest(document.getElementById('story-input'), (input) => `Anda adalah seorang penulis skenario untuk film pendek. Berdasarkan ide cerita berikut, buat **tepat 5 prompt video berurutan** untuk model Veo yang menceritakan sebuah kisah yang koheren. Setiap prompt harus berada di baris baru, dalam bahasa Inggris, dan menyertakan deskripsi audio spesifik dengan format \`, audio: [deskripsi audio]\`. **Jangan sertakan teks pengantar atau penutup apa pun, hanya daftar prompt saja.** Ide Cerita: "${input}"`));
+        usePromptBtn.addEventListener('click', () => { 
+            const newPrompts = geminiOutput.textContent.split('\n').filter(p => p.trim().includes(', audio:')).join('\n');
+            if (promptsInput.value.trim() !== '') { 
+                promptsInput.value += '\n' + newPrompts; 
+            } else { 
+                promptsInput.value = newPrompts; 
+            } 
+            closeModalBtn.click(); 
+        });
+        
+        async function handleGeneratePromptFromImage(event) {
+            apiKeyManager.init(apiKeyInput.value);
+            const button = event.target;
+            const block = button.closest('[id^="image-block-"]');
+            const fileInput = block.querySelector('input[type="file"]');
+            const promptTextarea = block.querySelector('textarea');
+            const file = fileInput.files[0];
+            const apiKey = apiKeyManager.getKey();
+            if (!file) { showErrorModal("Pilih gambar terlebih dahulu."); return; }
+            if (!apiKey) { showErrorModal("Masukkan API Key Anda."); return; }
+            
+            button.disabled = true; button.textContent = 'Menganalisis...';
+            
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const base64Data = e.target.result.split(',')[1];
+                const mimeType = file.type;
+                
+                const selectedModel = modelSelectVideoImage.value;
+                let geminiPrompt;
+                if (selectedModel.includes('veo-3.0')) {
+                    geminiPrompt = "Analisis gambar ini dan buat prompt video sinematik yang detail untuk model Veo 3. Jelaskan pemandangan dan sarankan aksi dinamis. Akhiri dengan deskripsi audio yang sesuai dalam format `, audio: [deskripsi]`. Jawab dalam satu baris dalam bahasa Inggris.";
+                } else {
+                    geminiPrompt = "Analisis gambar ini dan buat prompt video sinematik yang detail untuk model Veo 2. Jelaskan pemandangan dan sarankan aksi dinamis. Jawab dalam satu baris dalam bahasa Inggris dan JANGAN sertakan deskripsi audio.";
+                }
+
+                const payload = { contents: [{ parts: [{ text: geminiPrompt }, { inlineData: { mimeType: mimeType, data: base64Data } }] }] };
+                try { 
+                    const result = await callGeminiApi(payload, apiKey); 
+                    promptTextarea.value = result; 
+                } 
+                catch (error) { showErrorModal(`Gagal membuat prompt: ${error.message}`); } 
+                finally { button.disabled = false; button.textContent = '✨ Buat Prompt dari Gambar'; }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- Main Generation Logic ---
+        function updateResult(promptId, promptText, status, details = '', mediaUrl = null, mediaType = 'video') {
+            let resultCard = document.getElementById(promptId);
+            if (!resultCard) { 
+                resultCard = document.createElement('div'); 
+                resultCard.id = promptId; 
+                resultCard.className = 'bg-[var(--bg-panel)] p-4 sm:p-5 rounded-xl shadow-lg mb-4 relative border border-[var(--border-color)]'; 
+                resultsContainer.appendChild(resultCard); 
+            }
+            resultCard.dataset.fullPrompt = promptText;
+
+            let statusColor = 'text-yellow-400'; let statusIcon = `<div class="loader"></div>`;
+            let actionButton = '';
+            if (status === 'Selesai') { 
+                statusColor = 'text-green-400'; 
+                statusIcon = `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`; 
+            } 
+            else if (status === 'Error' || status === 'Dibatalkan') { 
+                statusColor = 'text-red-400'; 
+                statusIcon = `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                if (status === 'Error') {
+                    actionButton = `<button type="button" class="retry-btn mt-2 text-xs bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-1 px-3 rounded-md" data-prompt-id="${promptId}">Coba Lagi</button>`;
+                }
+            }
+            
+            let mediaElement = '';
+            if (mediaUrl) { 
+                const safeName = promptText.substring(0, 30).replace(/[^a-z0-9]/gi, '_');
+                if (mediaType === 'video') {
+                    mediaElement = `<div class="mt-4"><video controls class="w-full rounded-lg" preload="metadata" src="${mediaUrl}"></video><a href="${mediaUrl}" download="${safeName}.mp4" class="mt-3 inline-block w-full text-center bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition">Download Video</a></div>`; 
+                } else {
+                    mediaElement = `<div class="mt-4"><img src="${mediaUrl}" class="w-full rounded-lg"><a href="${mediaUrl}" download="${safeName}.png" class="mt-3 inline-block w-full text-center bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition">Download Gambar</a></div>`;
+                }
+            }
+
+            const simplifiedPrompt = promptText.length > 100 ? promptText.substring(0, 100) + '...' : promptText;
+
+            resultCard.innerHTML = `
+                <div class="flex items-start space-x-4">
+                    <div class="flex-shrink-0 ${statusColor}">${statusIcon}</div>
+                    <div class="flex-grow">
+                        <p class="font-semibold text-white pr-6">${simplifiedPrompt}</p>
+                        <p class="text-sm ${statusColor}">${status}</p>
+                        ${details ? `<p class="text-xs text-[var(--text-secondary)] mt-1">${details}</p>` : ''}
+                        ${actionButton}
+                    </div>
+                </div>
+                <button type="button" class="delete-result-btn absolute top-4 right-4 text-2xl text-[var(--text-secondary)] hover:text-white leading-none transition-colors" data-prompt-id="${promptId}">&times;</button>
+                ${mediaElement}`;
+        }
+        
+        async function processGeneration(taskDetails) {
+            const { id, payload, originalPrompt, modelName, isVideo } = taskDetails;
+            tasksStore[id] = taskDetails;
+
+            if (stopAllProcessing) { updateResult(id, originalPrompt, 'Dibatalkan', 'Proses dihentikan oleh pengguna.'); return null; }
+            updateResult(id, originalPrompt, 'Processing', 'Memulai proses...');
+            
+            const totalKeys = apiKeyManager.keys.length;
+            for (let i = 0; i < totalKeys; i++) {
+                const apiKey = apiKeyManager.getKey();
+                if (!apiKey) {
+                    updateResult(id, originalPrompt, 'Error', 'Tidak ada API Key yang valid tersisa.');
+                    throw new Error("NO_VALID_KEYS");
+                }
+
+                const API_URL = isVideo 
+                    ? `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predictLongRunning?key=${apiKey}`
+                    : `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict?key=${apiKey}`;
+
+                try {
+                    const startResponse = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    
+                    if (!startResponse.ok) {
+                        const errorText = await startResponse.text();
+                        const errorJson = JSON.parse(errorText);
+                        const errorMessage = errorJson.error?.message || 'Gagal memulai.';
+                        if (errorMessage.toLowerCase().includes("quota")) {
+                            throw new Error("QUOTA_EXCEEDED");
+                        }
+                        throw new Error(errorMessage);
+                    }
+
+                    if (!isVideo) {
+                        const result = await startResponse.json();
+                        if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+                            const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+                            const mediaResponse = await fetch(imageUrl);
+                            const mediaBlob = await mediaResponse.blob();
+                            return { mediaBlob, promptText: originalPrompt, mediaType: 'image' };
+                        } else {
+                            throw new Error('Respons API gambar tidak valid.');
+                        }
+                    }
+
+                    const startData = await startResponse.json(); const operationName = startData.name;
+                    if (!operationName) throw new Error('Tidak menerima operation name dari API.');
+                    updateResult(id, originalPrompt, 'Processing', `Proses dimulai. ID: ${operationName.split('/').pop()}. Menunggu hasil...`);
+                    let isDone = false; let finalData;
+                    while (!isDone) {
+                        if (stopAllProcessing) { updateResult(id, originalPrompt, 'Dibatalkan', 'Proses dihentikan.'); return null; }
+                        await sleep(10000);
+                        const statusUrl = `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${apiKey}`;
+                        const statusResponse = await fetch(statusUrl);
+                        if (!statusResponse.ok) { console.error(`Polling gagal untuk ${id}, mencoba lagi...`); continue; }
+                        const statusData = await statusResponse.json();
+                        if (statusData.done) { isDone = true; finalData = statusData; } else { updateResult(id, originalPrompt, 'Processing', 'Video sedang dirender oleh server...'); }
+                    }
+                    if (finalData.error) throw new Error(`API Error saat rendering: ${finalData.error.message}`);
+                    const videoUri = finalData.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri;
+                    if (!videoUri) { const raiFiltered = finalData.response?.generateVideoResponse?.raiMediaFilteredReasons?.[0]; if(raiFiltered) throw new Error(`Dibatalkan karena kebijakan keamanan: ${raiFiltered}`); throw new Error('Respons API tidak mengandung URI video.'); }
+                    updateResult(id, originalPrompt, 'Processing', 'Mengunduh video...');
+                    const videoResponse = await fetch(videoUri, { headers: { 'x-goog-api-key': apiKey } });
+                    if (!videoResponse.ok) throw new Error('Gagal mengunduh data video.');
+                    const mediaBlob = await videoResponse.blob(); 
+                    return { mediaBlob, promptText: originalPrompt, mediaType: 'video' };
+
+                } catch (error) { 
+                    console.error(`Error untuk prompt "${originalPrompt}" dengan key index ${apiKeyManager.currentIndex}:`, error);
+                    if (error.message === "QUOTA_EXCEEDED") {
+                        apiKeyManager.rotateKey();
+                        if (i === totalKeys - 1) {
+                            updateResult(id, originalPrompt, 'Error', `API Error: Semua API Key telah mencapai kuota.`);
+                            return null;
+                        }
+                        continue; // Coba dengan key berikutnya
+                    }
+                    updateResult(id, originalPrompt, 'Error', `API Error: ${error.message}`); 
+                    return null; 
+                }
+            }
+            return null; // Jika semua key gagal
+        }
+        
+        function removePromptFromTextarea(promptToRemove, textareaElement) {
+            let currentPrompts = textareaElement.value.split('\n');
+            const indexToRemove = currentPrompts.findIndex(p => p.trim() === promptToRemove.trim());
+            if (indexToRemove > -1) {
+                currentPrompts.splice(indexToRemove, 1);
+                textareaElement.value = currentPrompts.join('\n');
+                updatePromptCount(textareaElement, textareaElement.nextElementSibling.querySelector('span'));
+            }
+        }
+
+        async function runBatchProcessing(tasks, batchSize, processFunction, btn, textareaElement = null) {
+            btn.disabled = true;
+            processingActionsContainer.classList.remove('hidden');
+            postProcessingActionsContainer.classList.add('hidden');
+            stopAllProcessing = false;
+            tasksStore = {};
+            const delaySeconds = parseInt(delaySelect.value, 10);
+            apiKeyManager.init(apiKeyInput.value); // Init keys before starting
+
+            try {
+                for (let i = 0; i < tasks.length; i += batchSize) {
+                    if (stopAllProcessing) break;
+                    
+                    const batch = tasks.slice(i, i + batchSize);
+                    const batchPromises = batch.map(task => processFunction(task).then(result => {
+                        if (result && textareaElement) {
+                            removePromptFromTextarea(task.originalPrompt, textareaElement);
+                        }
+                        return result;
+                    }));
+
+                    await Promise.all(batchPromises);
+
+                    if (i + batchSize < tasks.length) {
+                        await sleep(delaySeconds * 1000);
+                    }
+                }
+            } catch (error) {
+                 showErrorModal(`Terjadi error tak terduga: ${error.message}`);
+            } finally {
+                 btn.disabled = false;
+                 processingActionsContainer.classList.add('hidden');
+                 if (document.querySelector('.retry-btn')) {
+                    postProcessingActionsContainer.classList.remove('hidden');
+                 }
+                 if (generatedMedia.length > 0) {
+                     downloadAllContainer.classList.remove('hidden');
+                 }
+            }
+        }
+
+        textForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); 
+            const modelName = modelSelectVideoText.value;
+            const promptsFromTextarea = promptsInput.value.trim().split('\n').filter(p => p.trim() !== '');
+            if (promptsFromTextarea.length === 0) { alert('Mohon isi setidaknya satu prompt.'); return; }
+            resultsContainer.innerHTML = ''; 
+            
+            const tasks = promptsFromTextarea.map((p, i) => {
+                const parameters = { sampleCount: 1, negativePrompt: negativePromptInput.value.trim() || undefined };
+                if (modelName === 'veo-2.0-generate-001') {
+                    parameters.durationSeconds = parseInt(durationSelectText.value, 10);
+                    parameters.aspectRatio = aspectRatioSelectVeo2Text.value;
+                } else {
+                    parameters.aspectRatio = "16:9";
+                    parameters.personGeneration = "allow_all";
+                }
+                return { 
+                    id: `prompt-result-${i}`,
+                    payload: { instances: [{ prompt: p }], parameters: parameters },
+                    originalPrompt: p,
+                    modelName: modelName,
+                    isVideo: true
+                };
+            });
+            
+            const batchSize = parseInt(multipleGenerateSelect.value, 10);
+            runBatchProcessing(tasks, batchSize, async (task) => {
+                const result = await processGeneration(task);
+                if (result) {
+                    const mediaUrl = URL.createObjectURL(result.mediaBlob);
+                    generatedMedia.push({ id: task.id, url: mediaUrl, name: task.originalPrompt, type: 'video' });
+                    updateResult(task.id, task.originalPrompt, 'Selesai', 'Video berhasil dibuat!', mediaUrl, 'video');
+                }
+                return result;
+            }, generateBtnText, promptsInput);
+        });
+
+        imageForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); 
+            const modelName = modelSelectVideoImage.value;
+            const imageBlocks = imageUploadsContainer.querySelectorAll('[id^="image-block-"]');
+            if (imageBlocks.length === 0) { alert('Mohon unggah setidaknya satu gambar.'); return; }
+            
+            resultsContainer.innerHTML = ''; 
+            const tasks = Array.from(imageBlocks).map((block, i) => ({ block, id: `prompt-result-img-${i}` }));
+
+            const batchSize = parseInt(multipleGenerateSelect.value, 10);
+            runBatchProcessing(tasks, batchSize, async (task) => {
+                return new Promise((resolve) => {
+                    const fileInput = task.block.querySelector('input[type="file"]'); 
+                    const promptTextarea = task.block.querySelector('textarea');
+                    let file = fileInput.files[0]; 
+                    let promptText = promptTextarea.value.trim();
+
+                    if (!file) { 
+                        updateResult(task.id, "Input Tidak Lengkap", "Error", `Gambar untuk item ini belum diisi.`); 
+                        resolve(null); 
+                        return; 
+                    }
+
+                    const processImage = (base64Data, finalPrompt) => {
+                        const parameters = { sampleCount: 1, negativePrompt: negativePromptInput.value.trim() || undefined };
+                        if (modelName === 'veo-2.0-generate-001') {
+                            parameters.durationSeconds = parseInt(durationSelectImage.value, 10);
+                            parameters.aspectRatio = aspectRatioSelectVeo2Image.value;
+                        } else {
+                            parameters.aspectRatio = "16:9";
+                            parameters.personGeneration = "allow_adult";
+                        }
+                        const payload = { instances: [{ prompt: finalPrompt, image: { "bytesBase64Encoded": base64Data, "mimeType": file.type } }], parameters: parameters };
+                        
+                        const taskDetails = {
+                            id: task.id,
+                            payload: payload,
+                            originalPrompt: finalPrompt || `Gambar: ${file.name}`,
+                            modelName: modelName,
+                            isVideo: true
+                        };
+                        
+                        processGeneration(taskDetails).then(result => {
+                            if (result) {
+                                const mediaUrl = URL.createObjectURL(result.mediaBlob);
+                                generatedMedia.push({ id: task.id, url: mediaUrl, name: `Image_${file.name}_${finalPrompt}`, type: 'video' });
+                                updateResult(task.id, taskDetails.originalPrompt, 'Selesai', 'Video berhasil dibuat!', mediaUrl, 'video');
+                            }
+                            resolve(result);
+                        });
+                    };
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => processImage(e.target.result.split(',')[1], promptText);
+                    reader.readAsDataURL(file);
+                });
+            }, generateBtnImage);
+        });
+
+        textToImageForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const modelName = modelSelectImage.value;
+            const prompts = imagePromptsInput.value.trim().split('\n').filter(p => p.trim() !== '');
+            if (prompts.length === 0) { alert('Mohon isi setidaknya satu prompt.'); return; }
+            resultsContainer.innerHTML = '';
+            
+            const tasks = prompts.map((p, i) => {
+                const parameters = { sampleCount: 1, aspectRatio: aspectRatioSelectImageGen.value, negativePrompt: negativePromptInput.value.trim() || undefined };
+                return {
+                    id: `image-result-${i}`,
+                    payload: { instances: [{ prompt: p }], parameters },
+                    originalPrompt: p,
+                    modelName: modelName,
+                    isVideo: false
+                };
+            });
+            
+            const batchSize = parseInt(multipleGenerateSelect.value, 10);
+            runBatchProcessing(tasks, batchSize, async (task) => {
+                const result = await processGeneration(task);
+                if (result) {
+                    const mediaUrl = URL.createObjectURL(result.mediaBlob);
+                    generatedMedia.push({ id: task.id, url: mediaUrl, name: task.originalPrompt, type: 'image' });
+                    updateResult(task.id, task.originalPrompt, 'Selesai', 'Gambar berhasil dibuat!', mediaUrl, 'image');
+                }
+                return result;
+            }, generateBtnTextToImage, imagePromptsInput);
+        });
+
+        jsonForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            resultsContainer.innerHTML = '';
+            generateBtnJson.disabled = true;
+            
+            try {
+                const modelName = modelSelectVideoJson.value;
+                const promptText = jsonPromptInput.value.trim();
+                if (!promptText) { throw new Error("JSON Prompt tidak boleh kosong."); }
+
+                const parameters = { sampleCount: 1, negativePrompt: negativePromptInput.value.trim() || undefined };
+                 if (modelName === 'veo-2.0-generate-001') {
+                    parameters.durationSeconds = parseInt(durationSelectJson.value, 10);
+                    parameters.aspectRatio = aspectRatioSelectVeo2Json.value;
+                } else {
+                    parameters.aspectRatio = "16:9";
+                    parameters.personGeneration = "allow_all";
+                }
+
+                const taskDetails = {
+                    id: 'json-result-1',
+                    payload: { instances: [{ prompt: promptText }], parameters: parameters },
+                    originalPrompt: promptText,
+                    modelName: modelName,
+                    isVideo: true
+                };
+                
+                const result = await processGeneration(taskDetails);
+                if (result) {
+                    const mediaUrl = URL.createObjectURL(result.mediaBlob);
+                    updateResult('json-result-1', promptText, 'Selesai', 'Video berhasil dibuat!', mediaUrl, 'video');
+                }
+            } catch (error) {
+                 showErrorModal(`Error: ${error.message}`);
+            } finally {
+                generateBtnJson.disabled = false;
+            }
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            stopAllProcessing = true;
+            showErrorModal("Semua proses yang sedang berjalan akan dibatalkan.");
+        });
+
+        downloadAllZipBtn.addEventListener('click', async () => {
+            const zip = new JSZip();
+            if (generatedMedia.length === 0) { alert("Tidak ada media yang berhasil dibuat untuk diunduh."); return; }
+            downloadAllZipBtn.disabled = true;
+            downloadAllZipBtn.textContent = 'Menyiapkan file zip...';
+            try {
+                for (let i = 0; i < generatedMedia.length; i++) {
+                    const media = generatedMedia[i];
+                    const response = await fetch(media.url);
+                    const blob = await response.blob();
+                    const extension = media.type === 'video' ? 'mp4' : 'png';
+                    const fileName = `${media.name.substring(0, 30).replace(/[^a-z0-9]/gi, '_')}_${i}.${extension}`;
+                    zip.file(fileName, blob);
+                }
+                zip.generateAsync({ type: "blob" }).then(function(content) {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(content);
+                    link.download = "veo_generated_media.zip";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                });
+            } catch (error) {
+                showErrorModal(`Gagal membuat file zip: ${error.message}`);
+            } finally {
+                downloadAllZipBtn.disabled = false;
+                downloadAllZipBtn.textContent = 'Download Semua sebagai .zip';
+            }
+        });
+
+        downloadAllFilesBtn.addEventListener('click', async () => {
+             const activePanel = document.querySelector('#app-container div[id^="panel-"]:not(.hidden)');
+             const isImagePanel = activePanel.id === 'panel-text-to-image';
+             const mediaToDownload = isImagePanel ? generatedMedia.filter(m => m.type === 'image') : generatedMedia.filter(m => m.type === 'video');
+            if (mediaToDownload.length === 0) { alert(`Tidak ada ${isImagePanel ? 'gambar' : 'video'} yang berhasil dibuat untuk diunduh.`); return; }
+            downloadAllFilesBtn.disabled = true;
+            downloadAllFilesBtn.textContent = 'Memulai unduhan...';
+            for (let i = 0; i < mediaToDownload.length; i++) {
+                const media = mediaToDownload[i];
+                const link = document.createElement('a');
+                link.href = media.url;
+                const extension = media.type === 'video' ? 'mp4' : 'png';
+                const fileName = `${media.name.substring(0, 30).replace(/[^a-z0-9]/gi, '_')}_${i}.${extension}`;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                await sleep(500);
+            }
+            downloadAllFilesBtn.disabled = false;
+            downloadAllFilesBtn.textContent = `Download Semua File`;
+        });
+        
+        function handleVeo2SettingsVisibility(selectElement, containerElement) {
+             if (selectElement.value === 'veo-2.0-generate-001') {
+                containerElement.classList.remove('hidden');
+            } else {
+                containerElement.classList.add('hidden');
+            }
+        }
+        
+        modelSelectVideoText.addEventListener('change', () => handleVeo2SettingsVisibility(modelSelectVideoText, veo2SettingsContainerText));
+        modelSelectVideoImage.addEventListener('change', () => handleVeo2SettingsVisibility(modelSelectVideoImage, veo2SettingsContainerImage));
+        modelSelectVideoJson.addEventListener('change', () => handleVeo2SettingsVisibility(modelSelectVideoJson, veo2SettingsContainerJson));
+        
+        function updatePromptCount(textarea, countElement) {
+            if (!textarea || !countElement) return;
+            const count = textarea.value.trim() === '' ? 0 : textarea.value.trim().split('\n').filter(line => line.trim() !== '').length;
+            countElement.textContent = count;
+        }
+
+        promptsInput.addEventListener('input', () => updatePromptCount(promptsInput, promptCountText));
+        imagePromptsInput.addEventListener('input', () => updatePromptCount(imagePromptsInput, promptCountImage));
+
+        resultsContainer.addEventListener('click', (event) => {
+            const target = event.target;
+            if (target.classList.contains('delete-result-btn')) {
+                const promptId = target.dataset.promptId;
+                const cardToDelete = document.getElementById(promptId);
+                if (cardToDelete) { cardToDelete.remove(); }
+                generatedMedia = generatedMedia.filter(media => media.id !== promptId);
+                delete tasksStore[promptId];
+                if (generatedMedia.length === 0) {
+                    downloadAllContainer.classList.add('hidden');
+                }
+                if (!document.querySelector('.retry-btn')) {
+                    postProcessingActionsContainer.classList.add('hidden');
+                }
+            }
+            if (target.classList.contains('retry-btn')) {
+                const promptId = target.dataset.promptId;
+                const taskToRetry = tasksStore[promptId];
+                if (taskToRetry) {
+                    const activeTextarea = document.querySelector('#panel-text-to-video:not(.hidden) textarea, #panel-text-to-image:not(.hidden) textarea');
+                    processGeneration(taskToRetry).then(result => {
+                         if (result) {
+                            const mediaUrl = URL.createObjectURL(result.mediaBlob);
+                            generatedMedia.push({ id: taskToRetry.id, url: mediaUrl, name: taskToRetry.originalPrompt, type: result.mediaType });
+                            updateResult(taskToRetry.id, taskToRetry.originalPrompt, 'Selesai', 'Media berhasil dibuat!', mediaUrl, result.mediaType);
+                            if(activeTextarea) {
+                                removePromptFromTextarea(taskToRetry.originalPrompt, activeTextarea);
+                            }
+                            if (!document.querySelector('.retry-btn')) {
+                                postProcessingActionsContainer.classList.add('hidden');
+                            }
+                            if (generatedMedia.length > 0) {
+                                downloadAllContainer.classList.remove('hidden');
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
+        retryAllBtn.addEventListener('click', () => {
+            const errorCards = document.querySelectorAll('.retry-btn');
+            if (errorCards.length === 0) {
+                showErrorModal("Tidak ada proses yang gagal untuk dicoba ulang.");
+                return;
+            }
+            errorCards.forEach(btn => btn.click());
+        });
+
+        // Initial load
+        checkAuth();
+
+    </script>
 </body>
 </html>
